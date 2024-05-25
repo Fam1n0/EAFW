@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>See PR5</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            margin: 0;
+        }
+        canvas {
+            border: 1px solid #fff;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="600" height="600"></canvas>
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Parameters
+        const size = 600;
+        const halfSize = size / 2;
+        const frequency = 0.02;
+        const speed = 0.1; // Increased speed for faster movement
+        const centralCircleRadius = 25; // Smaller central circle
+        const directions = [
+            { angle: 0, strength: 3, color: [0, 0, 255] },        // Right (Blue)
+            { angle: Math.PI, strength: 3, color: [255, 0, 0] },  // Left (Red)
+            { angle: Math.PI / 2, strength: 3, color: [255, 255, 0] },  // Bottom (Yellow)
+            { angle: -Math.PI / 2, strength: 3, color: [0, 255, 0] }  // Top (Green)
+        ];
+
+        const sequence = [8, 1, 6, 7, 2, 9, 4, 3]; // Sequence of vibrations
+        let sequenceIndex = 0;
+
+        // Generate grid points
+        const x = Array.from({ length: size }, (_, i) => i - halfSize);
+        const y = Array.from({ length: size }, (_, i) => i - halfSize);
+        const R = x.map(xi => y.map(yi => Math.sqrt(xi ** 2 + yi ** 2)));
+
+        let spirals = [];
+        let currentPattern = null;
+        let previousPattern = null;
+        let transitionProgress = 1.0;
+
+        function wavePattern(t, direction) {
+            return R.map((row, i) => row.map((r, j) => {
+                if (r < centralCircleRadius) {
+                    return 0; // Gradient effect for the central circle
+                }
+                const { angle, strength } = direction;
+                const xi = x[i] * Math.cos(angle) + y[j] * Math.sin(angle);
+                // Adding more complex wave functions to mimic organic shapes
+                const baseWave = Math.sin(r * frequency - (xi + t) * strength);
+                const secondaryWave = Math.sin(0.5 * r * frequency - (xi + t) * strength * 2);
+                const gradientEffect = Math.exp(-r / (size / 10)); // Exponential gradient effect
+                return (baseWave + secondaryWave) * gradientEffect;
+            }));
+        }
+
+        function drawPattern() {
+            const imageData = ctx.createImageData(size, size);
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    const color = [0, 0, 0];
+                    if (previousPattern) {
+                        const prevValue = (previousPattern.pattern[i][j] * 127 + 128) | 0;
+                        color[0] += previousPattern.color[0] * prevValue / 255 * (1 - transitionProgress);
+                        color[1] += previousPattern.color[1] * prevValue / 255 * (1 - transitionProgress);
+                        color[2] += previousPattern.color[2] * prevValue / 255 * (1 - transitionProgress);
+                    }
+                    if (currentPattern) {
+                        const currValue = (currentPattern.pattern[i][j] * 127 + 128) | 0;
+                        color[0] += currentPattern.color[0] * currValue / 255 * transitionProgress;
+                        color[1] += currentPattern.color[1] * currValue / 255 * transitionProgress;
+                        color[2] += currentPattern.color[2] * currValue / 255 * transitionProgress;
+                    }
+                    const index = (i * size + j) * 4;
+                    imageData.data[index] = Math.min(color[0], 255);
+                    imageData.data[index + 1] = Math.min(color[1], 255);
+                    imageData.data[index + 2] = Math.min(color[2], 255);
+                    imageData.data[index + 3] = 255;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function addSpiral(x, y, angle, t) {
+            spirals.push({ x, y, angle, t });
+        }
+
+        function drawSpirals(t) {
+            spirals.forEach(spiral => {
+                const { x, y, angle, t: startTime } = spiral;
+                ctx.beginPath();
+                for (let i = 0; i < 200; i++) {
+                    const theta = 0.1 * i;
+                    const dx = (x + (1 + 5 * theta) * Math.cos(theta + angle)) - halfSize;
+                    const dy = (y + (1 + 5 * theta) * Math.sin(theta + angle)) - halfSize;
+                    ctx.lineTo(dx, dy);
+                }
+                ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0, 1 - (t - startTime) / 100)})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.closePath();
+            });
+            spirals = spirals.filter(spiral => t - spiral.t < 100);
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            addSpiral(x, y, Math.PI / 3, frame);
+            addSpiral(x, y, -Math.PI / 3, frame);
+        });
+
+        let frame = 0;
+
+        function animate() {
+            if (frame % 60 === 0) { // Change direction every 60 frames for smoother transitions
+                const directionIndex = sequence[sequenceIndex % sequence.length] % 4;
+                const direction = directions[directionIndex];
+                sequenceIndex++;
+                const t = frame * speed;
+                previousPattern = currentPattern;
+                currentPattern = {
+                    pattern: wavePattern(t, direction),
+                    color: direction.color
+                };
+                transitionProgress = 0.0;
+            }
+
+            transitionProgress = Math.min(transitionProgress + 0.02, 1.0); // Increment transition progress
+
+            drawPattern();
+            drawSpirals(frame);
+            frame++;
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
