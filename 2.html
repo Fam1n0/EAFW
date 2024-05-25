@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics Playbox</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #282c34;
+        }
+        canvas {
+            border: 2px solid #fff;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="600" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const damping = 0.99;
+        const rippleStrength = 512;
+
+        let current = [];
+        let previous = [];
+
+        for (let i = 0; i < width; i++) {
+            current[i] = [];
+            previous[i] = [];
+            for (let j = 0; j < height; j++) {
+                current[i][j] = 0;
+                previous[i][j] = 0;
+            }
+        }
+
+        function update() {
+            for (let i = 1; i < width - 1; i++) {
+                for (let j = 1; j < height - 1; j++) {
+                    current[i][j] = (
+                        previous[i - 1][j] +
+                        previous[i + 1][j] +
+                        previous[i][j - 1] +
+                        previous[i][j + 1]
+                    ) / 2 - current[i][j];
+                    current[i][j] *= damping;
+                }
+            }
+
+            let temp = previous;
+            previous = current;
+            current = temp;
+        }
+
+        function draw() {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            for (let i = 0; i < width; i++) {
+                for (let j = 0; j < height; j++) {
+                    const index = (i + j * width) * 4;
+                    const color = 128 + current[i][j] * rippleStrength;
+                    data[index] = color;
+                    data[index + 1] = color;
+                    data[index + 2] = 255;
+                    data[index + 3] = 255;
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function animate() {
+            update();
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (x >= 1 && x < width - 1 && y >= 1 && y < height - 1) {
+                previous[Math.floor(x)][Math.floor(y)] = rippleStrength;
+            }
+        });
+
+        animate();
+    </script>
+</body>
+</html>
