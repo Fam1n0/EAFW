@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cymatic Patterns Simulation</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            margin: 0;
+        }
+        canvas {
+            border: 1px solid #fff;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="600" height="600"></canvas>
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Parameters
+        const size = 600;
+        const halfSize = size / 2;
+        const frequency = 0.02;
+        const speed = 0.2; // Increased speed for faster movement
+        const centralCircleRadius = 50;
+        const directions = [
+            { angle: 0, strength: 3 },        // Right
+            { angle: Math.PI, strength: 3 },  // Left
+            { angle: Math.PI / 2, strength: 3 },  // Bottom
+            { angle: -Math.PI / 2, strength: 3 }  // Top
+        ];
+
+        const sequence = [8, 1, 6, 7, 2, 9, 4, 3]; // Sequence of vibrations
+        let sequenceIndex = 0;
+
+        // Generate grid points
+        const x = Array.from({ length: size }, (_, i) => i - halfSize);
+        const y = Array.from({ length: size }, (_, i) => i - halfSize);
+        const R = x.map(xi => y.map(yi => Math.sqrt(xi ** 2 + yi ** 2)));
+
+        function organicWavePattern(t, direction) {
+            return R.map((row, i) => row.map((r, j) => {
+                if (r < centralCircleRadius) return 0; // Bounce back at the center
+                const { angle, strength } = direction;
+                const xi = x[i] * Math.cos(angle) + y[j] * Math.sin(angle);
+                // Adding more complex wave functions to mimic organic shapes
+                const baseWave = Math.sin(r * frequency - (xi + t) * strength);
+                const secondaryWave = Math.sin(0.5 * r * frequency - (xi + t) * strength * 2);
+                return baseWave * secondaryWave;
+            }));
+        }
+
+        function drawPattern(pattern) {
+            const imageData = ctx.createImageData(size, size);
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    const value = (pattern[i][j] * 127 + 128) | 0;
+                    const index = (i * size + j) * 4;
+                    imageData.data[index] = value;
+                    imageData.data[index + 1] = value;
+                    imageData.data[index + 2] = value;
+                    imageData.data[index + 3] = 255;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function combinePatterns(patterns) {
+            return patterns[0].map((row, i) => row.map((_, j) => {
+                return patterns.reduce((sum, pattern) => sum + pattern[i][j], 0);
+            }));
+        }
+
+        let frame = 0;
+        let patterns = [];
+
+        function animate() {
+            if (frame % 15 === 0) { // Change direction every 15 frames for faster transitions
+                const directionIndex = sequence[sequenceIndex % sequence.length] % 4;
+                sequenceIndex++;
+                const t = frame * speed;
+                const newPattern = organicWavePattern(t, directions[directionIndex]);
+                patterns.push(newPattern);
+            }
+            const combinedPattern = combinePatterns(patterns);
+            drawPattern(combinedPattern);
+            frame++;
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
