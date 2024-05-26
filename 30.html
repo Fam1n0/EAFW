@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Cymatics Simulation</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #000;
+            color: #fff;
+        }
+        canvas {
+            border: 2px solid #fff;
+        }
+        .controls {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .controls label {
+            margin-right: 10px;
+        }
+        .controls input[type="number"], .controls select {
+            margin-left: 10px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <label for="frequency-slider">Frequency (Hz):</label>
+        <input type="range" id="frequency-slider" min="1" max="100" value="50">
+        <input type="number" id="frequency-input" min="1" max="100" value="50">
+        <label for="shape-select">Shape:</label>
+        <select id="shape-select">
+            <option value="sphere">Sphere</option>
+            <option value="cube">Cube</option>
+            <option value="tetrahedron">Tetrahedron</option>
+            <option value="octahedron">Octahedron</option>
+            <option value="dodecahedron">Dodecahedron</option>
+            <option value="icosahedron">Icosahedron</option>
+        </select>
+        <label for="size-slider">Size:</label>
+        <input type="range" id="size-slider" min="1" max="10" value="5">
+        <input type="number" id="size-input" min="1" max="10" value="5">
+    </div>
+    <div id="threejs-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, shapeMesh;
+        let frequency = 50;
+        let shapeSize = 5;
+
+        const container = document.getElementById('threejs-container');
+        const frequencySlider = document.getElementById('frequency-slider');
+        const frequencyInput = document.getElementById('frequency-input');
+        const shapeSelect = document.getElementById('shape-select');
+        const sizeSlider = document.getElementById('size-slider');
+        const sizeInput = document.getElementById('size-input');
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            camera.position.z = 20;
+
+            createShape('sphere', shapeSize);
+
+            animate();
+        }
+
+        function createShape(shape, size) {
+            if (shapeMesh) {
+                scene.remove(shapeMesh);
+            }
+
+            let geometry;
+
+            switch (shape) {
+                case 'sphere':
+                    geometry = new THREE.SphereGeometry(size, 32, 32);
+                    break;
+                case 'cube':
+                    geometry = new THREE.BoxGeometry(size, size, size);
+                    break;
+                case 'tetrahedron':
+                    geometry = new THREE.TetrahedronGeometry(size);
+                    break;
+                case 'octahedron':
+                    geometry = new THREE.OctahedronGeometry(size);
+                    break;
+                case 'dodecahedron':
+                    geometry = new THREE.DodecahedronGeometry(size);
+                    break;
+                case 'icosahedron':
+                    geometry = new THREE.IcosahedronGeometry(size);
+                    break;
+                default:
+                    geometry = new THREE.SphereGeometry(size, 32, 32);
+            }
+
+            const material = new THREE.MeshBasicMaterial({ color: 0x0077ff, wireframe: true });
+            shapeMesh = new THREE.Mesh(geometry, material);
+            scene.add(shapeMesh);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            updateWavePattern();
+
+            renderer.render(scene, camera);
+        }
+
+        function updateWavePattern() {
+            const time = Date.now() * 0.001;
+            const wave = Math.sin(time * frequency) * 0.5;
+
+            shapeMesh.geometry.vertices.forEach((vertex, i) => {
+                vertex.normalize().multiplyScalar(shapeSize + wave);
+            });
+            shapeMesh.geometry.verticesNeedUpdate = true;
+
+            shapeMesh.rotation.y += 0.01;
+            shapeMesh.rotation.x += 0.005;
+        }
+
+        frequencySlider.addEventListener('input', (e) => {
+            frequency = e.target.value;
+            frequencyInput.value = frequency;
+        });
+
+        frequencyInput.addEventListener('input', (e) => {
+            frequency = e.target.value;
+            frequencySlider.value = frequency;
+        });
+
+        shapeSelect.addEventListener('change', (e) => {
+            createShape(e.target.value, shapeSize);
+        });
+
+        sizeSlider.addEventListener('input', (e) => {
+            shapeSize = e.target.value;
+            sizeInput.value = shapeSize;
+            createShape(shapeSelect.value, shapeSize);
+        });
+
+        sizeInput.addEventListener('input', (e) => {
+            shapeSize = e.target.value;
+            sizeSlider.value = shapeSize;
+            createShape(shapeSelect.value, shapeSize);
+        });
+
+        init();
+    </script>
+</body>
+</html>
