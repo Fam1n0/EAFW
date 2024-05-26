@@ -46,9 +46,6 @@
             <option value="dodecahedron">Dodecahedron</option>
             <option value="icosahedron">Icosahedron</option>
         </select>
-        <label for="size-slider">Size:</label>
-        <input type="range" id="size-slider" min="1" max="10" value="5">
-        <input type="number" id="size-input" min="1" max="10" value="5">
     </div>
     <div id="threejs-container"></div>
 
@@ -56,15 +53,13 @@
     <script>
         let scene, camera, renderer, shapeMesh;
         let frequency = 50;
-        let shapeSize = 5;
+        const shapeSize = 5;
         let touchPoints = [];
 
         const container = document.getElementById('threejs-container');
         const frequencySlider = document.getElementById('frequency-slider');
         const frequencyInput = document.getElementById('frequency-input');
         const shapeSelect = document.getElementById('shape-select');
-        const sizeSlider = document.getElementById('size-slider');
-        const sizeInput = document.getElementById('size-input');
 
         function init() {
             scene = new THREE.Scene();
@@ -193,18 +188,6 @@
 
         shapeSelect.addEventListener('change', (e) => {
             createShape(e.target.value, shapeSize);
-        });
-
-        sizeSlider.addEventListener('input', (e) => {
-            shapeSize = e.target.value;
-            sizeInput.value = shapeSize;
-            createShape(shapeSelect.value, shapeSize);
-        });
-
-        sizeInput.addEventListener('input', (e) => {
-            shapeSize = e.target.value;
-            sizeSlider.value = shapeSize;
-            createShape(shapeSelect.value, shapeSize);
         });
 
         init();
