@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experiments in Being</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #000;
+        }
+        canvas {
+            border: 2px solid #fff;
+            background-color: #000;
+        }
+        .controls {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .controls label {
+            color: #fff;
+            margin-right: 10px;
+        }
+        .controls input[type="number"], .controls select {
+            margin-left: 10px;
+        }
+        #output {
+            color: white;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <label for="frequency">Frequency (Hz):</label>
+        <input type="range" id="frequency-slider" min="100" max="1800" value="100">
+        <input type="number" id="frequency-input" min="100" max="1800" value="100">
+        <label for="shape">Shape:</label>
+        <select id="shape-select">
+            <option value="circle">Circle</option>
+            <option value="square">Square</option>
+            <option value="triangle">Triangle</option>
+            <option value="pentagon">Pentagon</option>
+            <option value="hexagon">Hexagon</option>
+        </select>
+    </div>
+    <canvas id="canvas" width="600" height="600"></canvas>
+    <div id="output">Vowel Sound: </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const damping = 0.99;
+        const rippleStrength = 512;
+
+        const frequencySlider = document.getElementById('frequency-slider');
+        const frequencyInput = document.getElementById('frequency-input');
+        const shapeSelect = document.getElementById('shape-select');
+        const outputDiv = document.getElementById('output');
+
+        let frequency = 100;
+        let shape = 'circle';
+
+        let current = [];
+        let previous = [];
+
+        for (let i = 0; i < width; i++) {
+            current[i] = [];
+            previous[i] = [];
+            for (let j = 0; j < height; j++) {
+                current[i][j] = 0;
+                previous[i][j] = 0;
+            }
+        }
+
+        const colors = [
+            '#111111', '#222222', '#333333', '#444444', '#555555',
+            '#666666', '#777777', '#888888', '#999999'
+        ];
+
+        function isWithinShape(x, y) {
+            const cx = width / 2;
+            const cy = height / 2;
+            const r = width / 2 - 2;
+            switch (shape) {
+                case 'circle':
+                    return (x - cx) ** 2 + (y - cy) ** 2 <= r ** 2;
+                case 'square':
+                    return Math.abs(x - cx) <= r / Math.sqrt(2) && Math.abs(y - cy) <= r / Math.sqrt(2);
+                case 'triangle':
+                    const a = 2 * r * Math.sqrt(3) / 3;
+                    const h = a * Math.sqrt(3) / 2;
+                    const dx = Math.abs(x - cx);
+                    const dy = Math.abs(y - (cy + h / 3));
+                    return dy <= h - dx * Math.sqrt(3);
+                case 'pentagon':
+                    return isWithinPolygon(5, x, y, cx, cy, r);
+                case 'hexagon':
+                    return isWithinPolygon(6, x, y, cx, cy, r);
+                default:
+                    return false;
+            }
+        }
+
+        function isWithinPolygon(sides, x, y, cx, cy, r) {
+            const angle = Math.PI * 2 / sides;
+            const points = [];
+            for (let i = 0; i < sides; i++) {
+                points.push({
+                    x: cx + r * Math.cos(i * angle),
+                    y: cy + r * Math.sin(i * angle)
+                });
+            }
+            let inside = false;
+            for (let i = 0, j = sides - 1; i < sides; j = i++) {
+                const xi = points[i].x, yi = points[i].y;
+                const xj = points[j].x, yj = points[j].y;
+                const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function update() {
+            for (let i = 1; i < width - 1; i++) {
+                for (let j = 1; j < height - 1; j++) {
+                    if (isWithinShape(i, j)) {
+                        current[i][j] = (
+                            previous[i - 1][j] +
+                            previous[i + 1][j] +
+                            previous[i][j - 1] +
+                            previous[i][j + 1]
+                        ) / 2 - current[i][j];
+                        current[i][j] *= damping;
+                    } else {
+                        current[i][j] = 0;
+                    }
+                }
+            }
+
+            let temp = previous;
+            previous = current;
+            current = temp;
+        }
+
+        function draw() {
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            for (let i = 0; i < width; i++) {
+                for (let j = 0; j < height; j++) {
+                    const index = (i + j * width) * 4;
+                    const colorIndex = Math.floor((Math.abs(current[i][j]) * 8)) % colors.length;
+                    const color = hexToRgb(colors[colorIndex]);
+
+                    data[index] = color.r;
+                    data[index + 1] = color.g;
+                    data[index + 2] = color.b;
+                    data[index + 3] = 255;
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+            drawShape();
+        }
+
+        function drawShape() {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            switch (shape) {
+                case 'circle':
+                    ctx.arc(width / 2, height / 2, width / 2 - 2, 0, Math.PI * 2);
+                    break;
+                case 'square':
+                    ctx.rect(2, 2, width - 4, height - 4);
+                    break;
+                case 'triangle':
+                    ctx.moveTo(width / 2, 2);
+                    ctx.lineTo(2, height - 2);
+                    ctx.lineTo(width - 2, height - 2);
+                    ctx.closePath();
+                    break;
+                case 'pentagon':
+                    drawPolygon(5);
+                    break;
+                case 'hexagon':
+                    drawPolygon(6);
+                    break;
+            }
+            ctx.stroke();
+        }
+
+        function drawPolygon(sides) {
+            const radius = width / 2 - 2;
+            const angle = Math.PI * 2 / sides;
+            ctx.moveTo(
+                width / 2 + radius * Math.cos(0),
+                height / 2 + radius * Math.sin(0)
+            );
+            for (let i = 1; i < sides; i++) {
+                ctx.lineTo(
+                    width / 2 + radius * Math.cos(i * angle),
+                    height / 2 + radius * Math.sin(i * angle)
+                );
+            }
+            ctx.closePath();
+        }
+
+        function hexToRgb(hex) {
+            const bigint = parseInt(hex.slice(1), 16);
+            return {
+                r: (bigint >> 16) & 255,
+                g: (bigint >> 8) & 255,
+                b: bigint & 255
+            };
+        }
+
+        function animate() {
+            update();
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        function updateOutput(frequency) {
+            const vowelSounds = [
+                { range: [100, 300], sound: 'A' },
+                { range: [301, 600], sound: 'E' },
+                { range: [601, 900], sound: 'I' },
+                { range: [901, 1200], sound: 'O' },
+                { range: [1201, 1800], sound: 'U' }
+            ];
+
+            let sound = '';
+            for (const vowel of vowelSounds) {
+                if (frequency >= vowel.range[0] && frequency <= vowel.range[1]) {
+                    sound = vowel.sound;
+                    break;
+                }
+            }
+
+            outputDiv.textContent = `Vowel Sound: ${sound}`;
+        }
+          canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (isWithinShape(x, y)) {
+                previous[Math.floor(x)][Math.floor(y)] = rippleStrength * Math.sin(2 * Math.PI * frequency * (Date.now() % 1000) / 1000);
+            }
+        });
+
+        frequencySlider.addEventListener('input', (e) => {
+            frequency = e.target.value;
+            frequencyInput.value = frequency;
+            updateOutput(frequency);
+        });
+
+        frequencyInput.addEventListener('input', (e) => {
+            frequency = e.target.value;
+            frequencySlider.value = frequency;
+            updateOutput(frequency);
+        });
+
+        shapeSelect.addEventListener('change', (e) => {
+            shape = e.target.value;
+        });
+
+        animate();
+    </script>
+</body>
+</html>
