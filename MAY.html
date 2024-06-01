@@ -85,7 +85,7 @@
 
                 const stereogramData = ctx.createImageData(canvas.width, canvas.height);
 
-                const maxDisplacement = 20; // Maximum pixel displacement for depth effect
+                const maxDisplacement = 50; // Maximum pixel displacement for depth effect
 
                 const randomDotPattern = generateRandomDotPattern(canvas.width, canvas.height);
 
@@ -126,6 +126,26 @@
                 pattern[i + 3] = 255;                 // A
             }
             return pattern;
+        }
+
+        // Function to normalize the depth map
+        function normalizeDepthMap(depthData, width, height) {
+            let minDepth = 255, maxDepth = 0;
+            for (let i = 0; i < depthData.length; i += 4) {
+                const depth = depthData[i];
+                if (depth < minDepth) minDepth = depth;
+                if (depth > maxDepth) maxDepth = depth;
+            }
+
+            const depthRange = maxDepth - minDepth;
+
+            for (let i = 0; i < depthData.length; i += 4) {
+                depthData[i] = ((depthData[i] - minDepth) / depthRange) * 255;
+                depthData[i + 1] = depthData[i]; // Copy to G and B for consistent grayscale
+                depthData[i + 2] = depthData[i];
+            }
+
+            return depthData;
         }
     </script>
 </body>
