@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Stereogram Creator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pirata+One&display=swap');
+        body {
+            font-family: 'Pirata One', cursive;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            color: #ff69b4;
+            text-shadow: 0 0 10px #ff69b4, 0 0 20px #ff69b4, 0 0 30px #ff69b4;
+            margin-bottom: 20px;
+        }
+        #stereogramCanvas {
+            border: 1px solid #ff69b4;
+            box-shadow: 0 0 20px #ff69b4;
+            margin-top: 20px;
+        }
+        input, button {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #333;
+            color: #e0e0e0;
+            font-family: 'Pirata One', cursive;
+            font-size: 1rem;
+        }
+        button {
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #444;
+        }
+        #error {
+            color: #ff69b4;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Path to Gnosis</h1>
+    <input type="file" id="texture" accept="image/*"><br>
+    <input type="file" id="depthMap" accept="image/*"><br>
+    <button onclick="createStereogram()">Create Stereogram</button>
+    <canvas id="stereogramCanvas" width="800" height="600"></canvas>
+    <div id="error"></div>
+
+    <script>
+        function createStereogram() {
+            const textureFile = document.getElementById('texture').files[0];
+            const depthMapFile = document.getElementById('depthMap').files[0];
+            const errorDiv = document.getElementById('error');
+            const canvas = document.getElementById('stereogramCanvas');
+            const ctx = canvas.getContext('2d');
+
+            errorDiv.textContent = '';
+
+            if (!textureFile || !depthMapFile) {
+                errorDiv.textContent = 'Please upload both texture and depth map images.';
+                return;
+            }
+
+            const textureImg = new Image();
+            const depthMapImg = new Image();
+
+            textureImg.onload = function () {
+                depthMapImg.onload = function () {
+                    if (textureImg.width !== depthMapImg.width || textureImg.height !== depthMapImg.height) {
+                        errorDiv.textContent = 'Both images must have the same dimensions.';
+                        return;
+                    }
+
+                    const textureCanvas = document.createElement('canvas');
+                    const depthCanvas = document.createElement('canvas');
+                    textureCanvas.width = canvas.width;
+                    textureCanvas.height = canvas.height;
+                    depthCanvas.width = canvas.width;
+                    depthCanvas.height = canvas.height;
+
+                    const textureCtx = textureCanvas.getContext('2d');
+                    const depthCtx = depthCanvas.getContext('2d');
+
+                    textureCtx.drawImage(textureImg, 0, 0, canvas.width, canvas.height);
+                    depthCtx.drawImage(depthMapImg, 0, 0, canvas.width, canvas.height);
+
+                    const textureData = textureCtx.getImageData(0, 0, canvas.width, canvas.height);
+                    const depthData = depthCtx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+                    const stereogramData = ctx.createImageData(canvas.width, canvas.height);
+
+                    const maxDisplacement = 30; // Maximum pixel displacement for depth effect
+
+                    const randomDotPattern = generateRandomDotPattern(canvas.width, canvas.height);
+
+                    for (let y = 0; y < canvas.height; y++) {
+                        for (let x = 0; x < canvas.width; x++) {
+                            const depthIndex = (y * canvas.width + x) * 4;
+                            const depthValue = depthData[depthIndex] / 255;
+                            const displacement = Math.floor(depthValue * maxDisplacement);
+
+                            const textureX = (x - displacement + canvas.width) % canvas.width;
+
+                            const texelIndex = (y * canvas.width + textureX) * 4;
+                            const pixelIndex = (y * canvas.width + x) * 4;
+
+                            stereogramData.data[pixelIndex] = randomDotPattern[texelIndex];
+                            stereogramData.data[pixelIndex + 1] = randomDotPattern[texelIndex + 1];
+                            stereogramData.data[pixelIndex + 2] = randomDotPattern[texelIndex + 2];
+                            stereogramData.data[pixelIndex + 3] = 255; // Fully opaque
+                        }
+                    }
+
+                    ctx.putImageData(stereogramData, 0, 0);
+                };
+                depthMapImg.onerror = function () {
+                    errorDiv.textContent = 'Failed to load depth map image.';
+                };
+                depthMapImg.src = URL.createObjectURL(depthMapFile);
+            };
+            textureImg.onerror = function () {
+                errorDiv.textContent = 'Failed to load texture image.';
+            };
+            textureImg.src = URL.createObjectURL(textureFile);
+        }
+
+        function generateRandomDotPattern(width, height) {
+            const pattern = new Uint8ClampedArray(width * height * 4);
+            for (let i = 0; i < pattern.length; i += 4) {
+                const grayValue = Math.random() * 255;
+                pattern[i] = grayValue; // R
+                pattern[i + 1] = grayValue; // G
+                pattern[i + 2] = grayValue; // B
+                pattern[i + 3] = 255; // A
+            }
+            return pattern;
+        }
+    </script>
+</body>
+</html>
