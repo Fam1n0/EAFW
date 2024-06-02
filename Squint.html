@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Lens Effect</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            margin: 0;
+            color: #fff;
+        }
+        #videoElement {
+            display: block;
+            width: 80%;
+            height: auto;
+            border: 2px solid #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            width: 80%;
+            text-align: center;
+        }
+        #blurSlider {
+            width: 80%;
+        }
+    </style>
+</head>
+<body>
+    <video id="videoElement" autoplay></video>
+    <div id="controls">
+        <label for="blurSlider">Squint Effect:</label>
+        <input type="range" id="blurSlider" min="0" max="20" step="1" value="0">
+    </div>
+    <script>
+        const video = document.getElementById('videoElement');
+        const blurSlider = document.getElementById('blurSlider');
+
+        // Request access to the camera
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Error accessing the camera: " + err);
+            });
+
+        // Apply visual effects using a canvas
+        video.addEventListener('play', () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            document.body.appendChild(canvas);
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            function draw() {
+                if (video.paused || video.ended) {
+                    return;
+                }
+
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Apply squint (blur) effect
+                const blurValue = blurSlider.value;
+                ctx.filter = `blur(${blurValue}px)`;
+                ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height);
+
+                // Apply wave effect
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                for (let y = 0; y < canvas.height; y++) {
+                    for (let x = 0; x < canvas.width; x++) {
+                        const offset = Math.sin(2 * Math.PI * (x / 50 + performance.now() / 1000)) * 5;
+                        const srcIndex = ((y * canvas.width) + x) * 4;
+                        const destIndex = ((y * canvas.width) + ((x + offset) | 0)) * 4;
+
+                        data[destIndex] = data[srcIndex]; // Red
+                        data[destIndex + 1] = data[srcIndex + 1]; // Green
+                        data[destIndex + 2] = data[srcIndex + 2]; // Blue
+                        data[destIndex + 3] = data[srcIndex + 3]; // Alpha
+                    }
+                }
+                ctx.putImageData(imageData, 0, 0);
+
+                requestAnimationFrame(draw);
+            }
+
+            draw();
+        });
+    </script>
+</body>
+</html>
