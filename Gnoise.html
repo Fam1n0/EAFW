@@ -9,9 +9,10 @@
         #controls { position: absolute; top: 20px; left: 20px; z-index: 1; color: #fff; display: none; max-height: 80vh; overflow-y: auto; background: rgba(0, 0, 0, 0.8); padding: 10px; border-radius: 8px; }
         .slider { width: 100%; margin-bottom: 10px; }
         .slider-label { display: flex; justify-content: space-between; align-items: center; }
-        #toggleButton, #resetZoomButton { position: absolute; top: 20px; right: 20px; z-index: 2; background-color: rgba(255, 255, 255, 0.5); color: black; border: none; padding: 10px; cursor: pointer; border-radius: 8px; }
+        #toggleButton, #resetZoomButton, #fullScreenButton { position: absolute; top: 20px; z-index: 2; background-color: rgba(255, 255, 255, 0.5); color: black; border: none; padding: 10px; cursor: pointer; border-radius: 8px; }
         #toggleButton { right: 20px; }
         #resetZoomButton { right: 140px; }
+        #fullScreenButton { right: 260px; }
         #zoomSlider { position: absolute; top: 80px; right: 20px; z-index: 2; background-color: rgba(255, 255, 255, 0.5); border-radius: 8px; padding: 5px; }
         #inputSection { position: absolute; top: 60px; left: 20px; z-index: 3; }
         #outputSection { position: absolute; top: 120px; left: 20px; z-index: 3; color: white; max-height: 50vh; overflow-y: auto; }
@@ -22,6 +23,7 @@
 <body>
     <button id="toggleButton">Show Controls</button>
     <button id="resetZoomButton">Reset Zoom</button>
+    <button id="fullScreenButton">Full Screen</button>
     <div id="controls">
         <div id="layerControls"></div>
         <button id="addLayerButton">Add Layer</button>
@@ -45,7 +47,7 @@
         const hexagrams = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63];
         const colors = ['#32CD32', '#1E90FF', '#FFD700', '#FF4500', '#FFC0CB', '#A52A2A', '#800080', '#F0E68C'];
         const letters = {'A':{speed:0.5,amplitude:0.5,separation:0.2,direction:0},'B':{speed:0.6,amplitude:0.6,separation:0.2,direction:10},'C':{speed:0.4,amplitude:0.4,separation:0.2,direction:20},'D':{speed:0.7,amplitude:0.7,separation:0.3,direction:30},'E':{speed:0.3,amplitude:0.3,separation:0.1,direction:40},'F':{speed:0.8,amplitude:0.8,separation:0.4,direction:50},'G':{speed:0.9,amplitude:0.9,separation:0.5,direction:60},'H':{speed:0.5,amplitude:0.5,separation:0.2,direction:70},'I':{speed:0.6,amplitude:0.6,separation:0.2,direction:80},'J':{speed:0.4,amplitude:0.4,separation:0.2,direction:90},'K':{speed:0.7,amplitude:0.7,separation:0.3,direction:100},'L':{speed:0.3,amplitude:0.3,separation:0.1,direction:110},'M':{speed:0.8,amplitude:0.8,separation:0.4,direction:120},'N':{speed:0.9,amplitude:0.9,separation:0.5,direction:130},'O':{speed:0.5,amplitude:0.5,separation:0.2,direction:140},'P':{speed:0.6,amplitude:0.6,separation:0.2,direction:150},'Q':{speed:0.4,amplitude:0.4,separation:0.2,direction:160},'R':{speed:0.7,amplitude:0.7,separation:0.3,direction:170},'S':{speed:0.3,amplitude:0.3,separation:0.1,direction:180},'T':{speed:0.8,amplitude:0.8,separation:0.4,direction:190},'U':{speed:0.9,amplitude:0.9,separation:0.5,direction:200},'V':{speed:0.5,amplitude:0.5,separation:0.2,direction:210},'W':{speed:0.6,amplitude:0.6,separation:0.2,direction:220},'X':{speed:0.4,amplitude:0.4,separation:0.2,direction:230},'Y':{speed:0.7,amplitude:0.7,separation:0.3,direction:240},'Z':{speed:0.3,amplitude:0.3,separation:0.1,direction:250}};
-        const hexagramMeanings = {0:'Creative power flows, a source of endless beginnings.',1:'Receptive ground, fertile and welcoming.',2:'Beginnings are challenging, like sprouts pushing through soil.',3:'Youthful folly invites learning, a dance with the unknown.',4:'Patience in waiting, like seeds in winter’s embrace.',5:'Conflict sharpens, yet can forge unity.',6:'An army marches, disciplined and purposeful.',7:'Together we are stronger, bound by common cause.',8:'Small efforts tame the wild, steady as a river carves stone.',9:'Treading carefully, each step mindful.',10:'Peace is a garden in bloom, serene and vibrant.',11:'Standstill, a pause, a breath between moments.',12:'Fellowship of men, connections that bind us.',13:'Great possession, treasure of the spirit.',14:'Modesty, a quiet strength, unassuming.',15:'Enthusiasm, a fire that spreads joy.',16:'Following, like the moon’s dance with the tides.',17:'Work on the decayed, renewal through effort.',18:'Approach with care, like a deer in the meadow.',19:'Contemplation, the mind’s still pond.',20:'Bite through, break the shell to reach the heart.',21:'Grace, an elegance in motion.',22:'Splitting apart, a necessary division.',23:'Return, thecycle renews.',24:'Innocence, pure and unblemished.',25:'Great taming power, a harnessed force.',26:'Corners of the mouth, nourishment taken in.',27:'Preponderance of the great, a peak moment.',28:'The abysmal, depths unexplored.',29:'The clinging, a flame that burns bright.',30:'Influence, a touch that sways.',31:'Duration, steadfast and enduring.',32:'Retreat, a step back to gain perspective.',33:'Great power, a force to be reckoned with.',34:'Progress, each step forward.',35:'Darkening of the light, shadows lengthen.',36:'The family, roots and branches intertwined.',37:'Opposition, forces in conflict.',38:'Obstruction, a barrier to overcome.',39:'Deliverance, freedom from constraint.',40:'Decrease, a necessary reduction.',41:'Increase, growth and abundance.',42:'Breakthrough, barriers shattered.',43:'Coming to meet, paths converge.',44:'Gathering together, strength in numbers.',45:'Pushing upward, reaching for the heights.',46:'Oppression, a weight to bear.',47:'The well, source of sustenance.',48:'Revolution, change in the air.',49:'The cauldron, transformation within.',50:'The arousing, an awakening.',51:'Keeping still, like a mountain in repose.',52:'Development, a flower in bloom.',53:'Marrying maiden, union and harmony.',54:'Abundance, a harvest of plenty.',55:'The wanderer, journey without end.',56:'The gentle, a breeze that soothes.',57:'The joyous, laughter that lifts the spirit.',58:'Dispersion, scattering like seeds in the wind.',59:'Limitation, boundaries defined.',60:'Inner truth, a light within.',61:'Small preponderance, details matter.',62:'After completion, the cycle begins anew.',63:'Before completion, anticipation in the air.'};
+        const hexagramMeanings = {0:'Creative power flows, a source of endless beginnings.',1:'Receptive ground, fertile and welcoming.',2:'Beginnings are challenging, like sprouts pushing through soil.',3:'Youthful folly invites learning, a dance with the unknown.',4:'Patience in waiting, like seeds in winter’s embrace.',5:'Conflict sharpens, yet can forge unity.',6:'An army marches, disciplined and purposeful.',7:'Together we are stronger, bound by common cause.',8:'Small efforts tame the wild, steady as a river carves stone.',9:'Treading carefully, each step mindful.',10:'Peace is a garden in bloom, serene and vibrant.',11:'Standstill, a pause, a breath between moments.',12:'Fellowship of men, connections that bind us.',13:'Great possession, treasure of the spirit.',14:'Modesty, a quiet strength, unassuming.',15:'Enthusiasm, a fire that spreads joy.',16:'Following, like the moon’s dance with the tides.',17:'Work on the decayed, renewal through effort.',18:'Approach with care, like a deer in themeadow.',19:'Contemplation, the mind’s still pond.',20:'Bite through, break the shell to reach the heart.',21:'Grace, an elegance in motion.',22:'Splitting apart, a necessary division.',23:'Return, the cycle renews.',24:'Innocence, pure and unblemished.',25:'Great taming power, a harnessed force.',26:'Corners of the mouth, nourishment taken in.',27:'Preponderance of the great, a peak moment.',28:'The abysmal, depths unexplored.',29:'The clinging, a flame that burns bright.',30:'Influence, a touch that sways.',31:'Duration, steadfast and enduring.',32:'Retreat, a step back to gain perspective.',33:'Great power, a force to be reckoned with.',34:'Progress, each step forward.',35:'Darkening of the light, shadows lengthen.',36:'The family, roots and branches intertwined.',37:'Opposition, forces in conflict.',38:'Obstruction, a barrier to overcome.',39:'Deliverance, freedom from constraint.',40:'Decrease, a necessary reduction.',41:'Increase, growth and abundance.',42:'Breakthrough, barriers shattered.',43:'Coming to meet, paths converge.',44:'Gathering together, strength in numbers.',45:'Pushing upward, reaching for the heights.',46:'Oppression, a weight to bear.',47:'The well, source of sustenance.',48:'Revolution, change in the air.',49:'The cauldron, transformation within.',50:'The arousing, an awakening.',51:'Keeping still, like a mountain in repose.',52:'Development, a flower in bloom.',53:'Marrying maiden, union and harmony.',54:'Abundance, a harvest of plenty.',55:'The wanderer, journey without end.',56:'The gentle, a breeze that soothes.',57:'The joyous, laughter that lifts the spirit.',58:'Dispersion, scattering like seeds in the wind.',59:'Limitation, boundaries defined.',60:'Inner truth, a light within.',61:'Small preponderance, details matter.',62:'After completion, the cycle begins anew.',63:'Before completion, anticipation in the air.'};
 
 let scene, camera, renderer, layers = [], layerCount = 0, isDrawing = false, drawPath = [];
 
@@ -61,6 +63,7 @@ function init() {
     document.getElementById('saveButton').addEventListener('click', saveImage);
     document.getElementById('toggleButton').addEventListener('click', toggleControls);
     document.getElementById('resetZoomButton').addEventListener('click', resetZoom);
+    document.getElementById('fullScreenButton').addEventListener('click', toggleFullScreen);
     document.getElementById('processButton').addEventListener('click', processInput);
 
     window.addEventListener('resize', onWindowResize, false);
@@ -95,6 +98,16 @@ function resetZoom() {
     document.getElementById('zoom').value = zoom;
     document.getElementById('zoomValue').textContent = zoom;
     scene.scale.set(zoom, zoom, zoom);
+}
+
+function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
 }
 
 function handleZoom(event) {
@@ -163,8 +176,7 @@ function animate() {
         layer.uniforms.time.value += 0.01;
         if (isDrawing) {
             const path = drawPath[drawPath.length - 1];
-            layer.uniforms.drawPath.value.set(path.x, path.y, path.z);
-        }
+            layer.uniforms.drawPath.value.set(path.x, path.y, path.z);}
     });
     renderer.render(scene, camera);
 }
@@ -181,7 +193,7 @@ function onTouchStart(event) {
     event.preventDefault();
     const touch = event.touches[0];
     const x = (touch.clientX / window.innerWidth) * 2 - 1;
-    const y = -(touch.clientY /window.innerHeight) * 2 + 1;
+    const y = -(touch.clientY / window.innerHeight) * 2 + 1;
     isDrawing = true;
     drawPath = [{ x, y, z: 0 }];
     layers.forEach(layer => {
@@ -208,21 +220,14 @@ function onMouseDown(event) {
     const y = -(event.clientY / window.innerHeight) * 2 + 1;
     isDrawing = true;
     drawPath = [{ x, y, z: 0 }];
-    layers.forEach(layer => {
-        layer.uniforms.touchPosition.value.set(x, y);
-    });
 }
 
 function onMouseMove(event) {
+    if (!isDrawing) return;
     event.preventDefault();
     const x = (event.clientX / window.innerWidth) * 2 - 1;
     const y = -(event.clientY / window.innerHeight) * 2 + 1;
-    if (isDrawing) {
-        drawPath.push({ x, y, z: 0 });
-        layers.forEach(layer => {
-            layer.uniforms.touchPosition.value.set(x, y);
-        });
-    }
+    drawPath.push({ x, y, z: 0 });
 }
 
 function onMouseUp(event) {
@@ -231,9 +236,9 @@ function onMouseUp(event) {
 }
 
 function handleOrientation(event) {
-    const alpha = event.alpha;
-    const beta = event.beta;
-    const gamma = event.gamma;
+    const alpha = event.alpha; // Z-axis rotation
+    const beta = event.beta;   // X-axis rotation
+    const gamma = event.gamma; // Y-axis rotation
 
     layers.forEach(layer => {
         layer.uniforms.direction.value = (layer.uniforms.direction.value + gamma) % 360;
@@ -291,41 +296,15 @@ function getRandomHexagram() {
 }
 
 function getLetterConfig(letter) {
-    return letters[letter] || letters['A'];
+    return letters[letter] || { speed: 0.5, amplitude: 0.5, separation: 0.2, direction: 0 };
 }
 
 function getHexagramMeaning(hexagram) {
     return hexagramMeanings[hexagram];
 }
 
-let audioContext, analyser, dataArray;
-
 function setupAudio() {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        const source = audioContext.createMediaStreamSource(stream);
-        analyser = audioContext.createAnalyser();
-        source.connect(analyser);
-        analyser.fftSize = 2048;
-        const bufferLength = analyser.frequencyBinCount;
-        dataArray = new Uint8Array(bufferLength);
-        animateAudio();
-    }).catch(err => {
-        console.error('Error accessing audio stream:', err);
-    });
-}
-
-function animateAudio() {
-    requestAnimationFrame(animateAudio);
-    analyser.getByteTimeDomainData(dataArray);
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-        sum += Math.abs(dataArray[i] - 128);
-    }
-    let average = sum / dataArray.length;
-    layers.forEach(layer => {
-        layer.uniforms.amplitude.value = average / 128;
-    });
+    // Add your audio setup code here if needed
 }
 
 init();
