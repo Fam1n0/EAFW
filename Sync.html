@@ -120,21 +120,6 @@
                 return hexagram;
             }
 
-            function captureImage() {
-                const link = document.createElement('a');
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const canvas = document.createElement('canvas');
-                canvas.width = chakraCanvas.width;
-                canvas.height = chakraCanvas.height;
-                const tempCtx = canvas.getContext('2d');
-                tempCtx.fillStyle = 'black';
-                tempCtx.fillRect(0, 0, canvas.width, canvas.height);
-                tempCtx.drawImage(chakraCanvas, 0, 0);
-                link.download = `chakra_visualization_${timestamp}.png`;
-                link.href = canvas.toDataURL('image/png', 1.0);
-                link.click();
-            }
-
             fullscreenButton.addEventListener('click', function() {
                 if (!document.fullscreenElement) {
                     document.documentElement.requestFullscreen();
@@ -155,17 +140,8 @@
                 const fractalDepth = 3;
                 const artQuality = evaluateArtQuality(fibonacciValue, fractalDepth);
                 console.log(`Art Quality Score: ${artQuality}`);
-                const currentTime = new Date().getTime();
-                if (currentTime - startTime > 36000 && (artQuality > 50 || currentTime - lastCaptureTime > 60000)) {
-                    feedbackData.push({ time: new Date(), good: true });
-                    console.log('Self-learning decision: Good');
-                    captureImage();
-                    lastCaptureTime = currentTime;
-                    localStorage.setItem('lastCaptureTime', lastCaptureTime);
-                } else {
-                    feedbackData.push({ time: new Date(), good: false });
-                    console.log('Self-learning decision: Bad');
-                }
+                feedbackData.push({ time: new Date(), good: artQuality > 50 });
+                console.log(`Self-learning decision: ${artQuality > 50 ? 'Good' : 'Bad'}`);
                 localStorage.setItem('feedbackData', JSON.stringify(feedbackData));
                 let recentFeedback = feedbackData.slice(-10);
                 let goodCount = recentFeedback.filter(data => data.good).length;
