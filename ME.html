@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lucid Sky Processor</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #1a002b; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #ui {
+            position: absolute;
+            bottom: 30px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            color: #00ffff;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 900;
+            font-size: 1.2rem;
+            text-shadow: 2px 2px 0px #ff00ff;
+            letter-spacing: 2px;
+            mix-blend-mode: hard-light;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">THE MELTING WORLD</div>
+    <canvas id="glcanvas"></canvas>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec2 a_position;
+        varying vec2 v_texCoord;
+        void main() {
+            gl_Position = vec4(a_position, 0.0, 1.0);
+            v_texCoord = (a_position + 1.0) * 0.5;
+            v_texCoord.y = 1.0 - v_texCoord.y; 
+        }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        uniform sampler2D u_image;
+        uniform float u_time;
+        uniform vec2 u_resolution;
+        varying vec2 v_texCoord;
+
+        // A function to create smooth, fun psychedelic bands
+        vec3 getFunColor(float t) {
+            // Cosine based palette (IQ style) for smooth, rich transitions
+            vec3 a = vec3(0.5, 0.5, 0.5);
+            vec3 b = vec3(0.5, 0.5, 0.5);
+            vec3 c = vec3(1.0, 1.0, 1.0);
+            // This vector controls the color phase. 
+            // We shift it slightly to get Magenta, Cyan, Lime, Yellow
+            vec3 d = vec3(0.00, 0.33, 0.67); 
+            
+            return a + b * cos(6.28318 * (c * t + d));
+        }
+
+        void main() {
+            vec2 uv = v_texCoord;
+            
+            // --- 1. EXAGGERATED SWIRLS (Domain Warping) ---
+            // We distort the coordinate space using sine waves.
+            // This creates the "Melting" look.
+            float fluidTime = u_time * 0.8;
+            
+            // Large slow waves
+            uv.x += sin(uv.y * 4.0 + fluidTime) * 0.02;
+            uv.y += cos(uv.x * 4.0 + fluidTime) * 0.02;
+            
+            // Small fast ripples (The "Exaggeration")
+            uv.x += sin(uv.y * 15.0 - fluidTime * 2.0) * 0.005;
+            
+            // --- 2. SMOOTH EDGE DETECTION ---
+            vec2 pixel = 2.0 / u_resolution; // Thicker lines for cartoon look
+            
+            // Sobel Kernel for edges
+            float dx = pixel.x;
+            float dy = pixel.y;
+            
+            vec4 c1 = texture2D(u_image, uv + vec2(-dx, -dy));
+            vec4 c2 = texture2D(u_image, uv + vec2(0.0, -dy));
+            vec4 c3 = texture2D(u_image, uv + vec2(dx, -dy));
+            vec4 c4 = texture2D(u_image, uv + vec2(-dx, 0.0));
+            vec4 c5 = texture2D(u_image, uv + vec2(dx, 0.0));
+            vec4 c6 = texture2D(u_image, uv + vec2(-dx, dy));
+            vec4 c7 = texture2D(u_image, uv + vec2(0.0, dy));
+            vec4 c8 = texture2D(u_image, uv + vec2(dx, dy));
+            
+            // Calculate edge strength based on luminance differences
+            vec4 sx = -c1 - 2.0 * c4 - c6 + c3 + 2.0 * c5 + c8;
+            vec4 sy = -c1 - 2.0 * c2 - c3 + c6 + 2.0 * c7 + c8;
+            float edge = length(sx.rgb) + length(sy.rgb);
+
+            // --- 3. COLOR MAPPING ---
+            // Sample the warped image
+            vec4 color = texture2D(u_image, uv);
+            
+            // Get brightness (luminance)
+            float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+            
+            // QUANTIZATION (Banding)
+            // Instead of smooth gradients, we snap the brightness to "steps"
+            // This creates the "Paint by Numbers" look.
+            float steps = 6.0;
+            float quantized = floor(gray * steps) / steps;
+            
+            // COLOR CYCLING
+            // We add time to the quantized value so colors "flow" through objects
+            // The 0.2 offset separates the colors nicely
+            vec3 artColor = getFunColor(quantized + u_time * 0.1);
+            
+            // Boost Saturation
+            artColor = mix(vec3(gray), artColor, 1.4);
+
+            // --- 4. COMPOSITION ---
+            // Draw heavy smooth black lines over the colors
+            // smoothstep makes the lines less pixelated
+            float line = smoothstep(0.4, 0.6, edge);
+            
+            vec3 finalColor = mix(artColor, vec3(0.05, 0.0, 0.1), line);
+
+            gl_FragColor = vec4(finalColor, 1.0);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl');
+        let video = document.createElement('video');
+        let isPlaying = true;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vsSource = document.getElementById('vertex-shader').text;
+        const fsSource = document.getElementById('fragment-shader').text;
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1.0, -1.0,  1.0, -1.0, -1.0,  1.0,
+            -1.0,  1.0,  1.0, -1.0,  1.0,  1.0,
+        ]), gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, "a_position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+        const uImage = gl.getUniformLocation(program, "u_image");
+        const uTime = gl.getUniformLocation(program, "u_time");
+        const uResolution = gl.getUniformLocation(program, "u_resolution");
+
+        async function setupCamera() {
+            try {
+                // Constraints to prefer the back camera and decent resolution
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                // 'loadedmetadata' ensures dimensions are ready
+                video.addEventListener('loadedmetadata', () => {
+                    video.play();
+                    render();
+                });
+            } catch (err) {
+                console.error(err);
+                alert("Camera Error: Ensure you are on HTTPS or localhost.");
+            }
+        }
+
+        function render(now) {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+                
+                gl.uniform1f(uTime, now * 0.001);
+                gl.uniform2f(uResolution, canvas.width, canvas.height);
+                
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            }
+            if(isPlaying) requestAnimationFrame(render);
+        }
+
+        // Tap to pause effect (freeze frame)
+        window.addEventListener('touchstart', (e) => { 
+            // preventDefault stops double-firing on some Androids
+            // e.preventDefault(); 
+            isPlaying = !isPlaying; 
+            if(isPlaying) render(performance.now()); 
+        });
+
+        setupCamera();
+    </script>
+</body>
+</html>
