@@ -1,31 +1,99 @@
-<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Lucid Sky Processor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <title>Lucid Sky Processor v2</title>
     <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; background: #1a002b; }
-        canvas { display: block; width: 100vw; height: 100vh; }
-        #ui {
+        body, html { 
+            margin: 0; padding: 0; 
+            overflow: hidden; 
+            background: #000; 
+            width: 100%; height: 100%;
+        }
+        canvas { 
+            display: block; 
+            width: 100vw; 
+            height: 100vh; 
+        }
+        
+        /* Floating Title */
+        #title-overlay {
             position: absolute;
-            bottom: 30px;
+            top: 20px;
             width: 100%;
             text-align: center;
-            pointer-events: none;
-            color: #00ffff;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            color: rgba(0, 255, 255, 0.7);
             font-family: 'Courier New', Courier, monospace;
             font-weight: 900;
-            font-size: 1.2rem;
+            font-size: 1rem;
             text-shadow: 2px 2px 0px #ff00ff;
             letter-spacing: 2px;
             mix-blend-mode: hard-light;
+            z-index: 10;
+        }
+
+        /* Control Bar */
+        #controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 80px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 20;
+            padding-bottom: 10px; /* Safe area for modern phones */
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-family: sans-serif;
+            font-size: 14px;
+            text-transform: uppercase;
+            backdrop-filter: blur(5px);
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .btn:active {
+            background: rgba(0, 255, 255, 0.4);
+            transform: scale(0.95);
+        }
+
+        /* Flash animation for photo taking */
+        #flash {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 30;
+            transition: opacity 0.1s ease-out;
         }
     </style>
 </head>
 <body>
-    <div id="ui">THE MELTING WORLD</div>
+    <div id="title-overlay">THE MELTING WORLD</div>
+    <div id="flash"></div>
     <canvas id="glcanvas"></canvas>
+
+    <div id="controls">
+        <button class="btn" id="btn-fullscreen">Full Scrn</button>
+        <button class="btn" id="btn-save" style="border-color: #ff00ff; color:#ff00ff; font-weight:bold;">Save HD</button>
+    </div>
 
     <script id="vertex-shader" type="x-shader/x-vertex">
         attribute vec2 a_position;
@@ -34,6 +102,218 @@
             gl_Position = vec4(a_position, 0.0, 1.0);
             v_texCoord = (a_position + 1.0) * 0.5;
             v_texCoord.y = 1.0 - v_texCoord.y; 
+        }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        uniform sampler2D u_image;
+        uniform float u_time;
+        uniform vec2 u_resolution;
+        varying vec2 v_texCoord;
+
+        vec3 getFunColor(float t) {
+            vec3 a = vec3(0.5, 0.5, 0.5);
+            vec3 b = vec3(0.5, 0.5, 0.5);
+            vec3 c = vec3(1.0, 1.0, 1.0);
+            vec3 d = vec3(0.00, 0.33, 0.67); 
+            return a + b * cos(6.28318 * (c * t + d));
+        }
+
+        void main() {
+            vec2 uv = v_texCoord;
+            float fluidTime = u_time * 0.8;
+            uv.x += sin(uv.y * 4.0 + fluidTime) * 0.02;
+            uv.y += cos(uv.x * 4.0 + fluidTime) * 0.02;
+            uv.x += sin(uv.y * 15.0 - fluidTime * 2.0) * 0.005;
+            
+            vec2 pixel = 2.0 / u_resolution; 
+            float dx = pixel.x;
+            float dy = pixel.y;
+            
+            vec4 c1 = texture2D(u_image, uv + vec2(-dx, -dy));
+            vec4 c2 = texture2D(u_image, uv + vec2(0.0, -dy));
+            vec4 c3 = texture2D(u_image, uv + vec2(dx, -dy));
+            vec4 c4 = texture2D(u_image, uv + vec2(-dx, 0.0));
+            vec4 c5 = texture2D(u_image, uv + vec2(dx, 0.0));
+            vec4 c6 = texture2D(u_image, uv + vec2(-dx, dy));
+            vec4 c7 = texture2D(u_image, uv + vec2(0.0, dy));
+            vec4 c8 = texture2D(u_image, uv + vec2(dx, dy));
+            
+            vec4 sx = -c1 - 2.0 * c4 - c6 + c3 + 2.0 * c5 + c8;
+            vec4 sy = -c1 - 2.0 * c2 - c3 + c6 + 2.0 * c7 + c8;
+            float edge = length(sx.rgb) + length(sy.rgb);
+
+            vec4 color = texture2D(u_image, uv);
+            float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+            float steps = 6.0;
+            float quantized = floor(gray * steps) / steps;
+            vec3 artColor = getFunColor(quantized + u_time * 0.1);
+            artColor = mix(vec3(gray), artColor, 1.4);
+            float line = smoothstep(0.4, 0.6, edge);
+            vec3 finalColor = mix(artColor, vec3(0.05, 0.0, 0.1), line);
+
+            gl_FragColor = vec4(finalColor, 1.0);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true }); 
+        // Note: preserveDrawingBuffer is needed to save the image reliably
+        
+        let video = document.createElement('video');
+        let isPlaying = true;
+        
+        // --- 1. HD RESIZE LOGIC ---
+        function resize() {
+            // Get the device pixel ratio (e.g., 2.0 for Retina, 3.0 for modern Androids)
+            const dpr = window.devicePixelRatio || 1;
+            
+            // Set actual canvas memory size to screen size * density
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            
+            // Ensure WebGL knows the full size
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- SHADER BOILERPLATE ---
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vsSource = document.getElementById('vertex-shader').text;
+        const fsSource = document.getElementById('fragment-shader').text;
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1.0, -1.0,  1.0, -1.0, -1.0,  1.0,
+            -1.0,  1.0,  1.0, -1.0,  1.0,  1.0,
+        ]), gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, "a_position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+        const uImage = gl.getUniformLocation(program, "u_image");
+        const uTime = gl.getUniformLocation(program, "u_time");
+        const uResolution = gl.getUniformLocation(program, "u_resolution");
+
+        // --- CAMERA SETUP ---
+        async function setupCamera() {
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        // Requesting 1080p ideal for better quality
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    },
+                    audio: false
+                };
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true); // Important for iOS
+                video.addEventListener('loadedmetadata', () => {
+                    video.play();
+                    render();
+                });
+            } catch (err) {
+                console.error(err);
+                alert("Camera Error: Ensure you are on HTTPS.");
+            }
+        }
+
+        function render(now) {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+                
+                gl.uniform1f(uTime, now * 0.001);
+                // Pass the high-DPI canvas dimensions to shader
+                gl.uniform2f(uResolution, canvas.width, canvas.height);
+                
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            }
+            if(isPlaying) requestAnimationFrame(render);
+        }
+
+        // --- UI INTERACTION LOGIC ---
+
+        // 1. Toggle Play/Pause on Canvas Touch
+        canvas.addEventListener('touchstart', (e) => { 
+            // e.preventDefault(); // Optional: uncomment if scrolling happens
+            isPlaying = !isPlaying; 
+            if(isPlaying) render(performance.now()); 
+        });
+
+        // 2. Fullscreen Logic
+        document.getElementById('btn-fullscreen').addEventListener('click', (e) => {
+            e.stopPropagation(); // Stop click from pausing the canvas
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log("Fullscreen blocked or not supported");
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        });
+
+        // 3. Save Logic with Unique Filename
+        document.getElementById('btn-save').addEventListener('click', (e) => {
+            e.stopPropagation(); // Stop click from pausing the canvas
+            
+            // Visual Flash Effect
+            const flash = document.getElementById('flash');
+            flash.style.opacity = 0.8;
+            setTimeout(() => { flash.style.opacity = 0; }, 100);
+
+            // Generate Timestamp
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+            const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+            const filename = `MeltingWorld_${dateStr}_${timeStr}.png`;
+
+            // Create download link
+            const link = document.createElement('a');
+            link.download = filename;
+            // High quality standard (0.9 to 1.0)
+            link.href = canvas.toDataURL('image/png', 1.0);
+            link.click();
+        });
+
+        setupCamera();
+    </script>
+</body>
+</html>
         }
     </script>
 
