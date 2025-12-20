@@ -6,13 +6,14 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
-    <title>Lucid Sky Processor v2</title>
+    <title>Lucid Sky Processor v3</title>
     <style>
         body, html { 
             margin: 0; padding: 0; 
             overflow: hidden; 
             background: #000; 
             width: 100%; height: 100%;
+            font-family: 'Courier New', Courier, monospace;
         }
         canvas { 
             display: block; 
@@ -20,20 +21,435 @@
             height: 100vh; 
         }
         
-        /* Floating Title */
+        /* UI OVERLAYS */
         #title-overlay {
             position: absolute;
             top: 20px;
             width: 100%;
             text-align: center;
-            pointer-events: none; /* Let clicks pass through to canvas */
+            pointer-events: none;
             color: rgba(0, 255, 255, 0.7);
-            font-family: 'Courier New', Courier, monospace;
             font-weight: 900;
             font-size: 1rem;
             text-shadow: 2px 2px 0px #ff00ff;
             letter-spacing: 2px;
             mix-blend-mode: hard-light;
+            z-index: 10;
+        }
+
+        /* BOTTOM CONTROL BAR */
+        #controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 80px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 20;
+            padding-bottom: 10px;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            color: #fff;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        
+        .btn-wide {
+            width: auto;
+            border-radius: 30px;
+            padding: 0 24px;
+            font-size: 14px;
+            text-transform: uppercase;
+            font-weight: bold;
+            border-color: #ff00ff; 
+            color: #ff00ff;
+        }
+
+        .btn:active {
+            background: rgba(0, 255, 255, 0.4);
+            transform: scale(0.95);
+        }
+
+        /* SETTINGS MENU (SLIDE UP) */
+        #settings-menu {
+            position: absolute;
+            bottom: 90px; /* Above control bar */
+            left: 5%;
+            width: 90%;
+            background: rgba(10, 0, 20, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            box-sizing: border-box;
+            color: #00ffff;
+            transform: translateY(150%); /* Hidden by default */
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 15;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #settings-menu.visible {
+            transform: translateY(0);
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .setting-label {
+            font-size: 0.8rem;
+            width: 60px;
+        }
+        
+        /* Custom Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            flex-grow: 1;
+            margin-left: 10px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #ff00ff;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 5px #ff00ff;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: rgba(0, 255, 255, 0.3);
+            border-radius: 2px;
+        }
+
+        #flash {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 30;
+            transition: opacity 0.1s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div id="title-overlay">THE MELTING WORLD</div>
+    <div id="flash"></div>
+    <canvas id="glcanvas"></canvas>
+
+    <div id="settings-menu">
+        <div class="setting-row">
+            <span class="setting-label">Melt</span>
+            <input type="range" id="param-distortion" min="0" max="10" step="0.1" value="4.0">
+        </div>
+        <div class="setting-row">
+            <span class="setting-label">Flow</span>
+            <input type="range" id="param-speed" min="0" max="3" step="0.1" value="0.8">
+        </div>
+        <div class="setting-row">
+            <span class="setting-label">Colors</span>
+            <input type="range" id="param-colorSpeed" min="0" max="2" step="0.1" value="0.1">
+        </div>
+        <div class="setting-row">
+            <span class="setting-label">Edges</span>
+            <input type="range" id="param-edges" min="0" max="5" step="0.1" value="1.0">
+        </div>
+        <div class="setting-row">
+            <span class="setting-label">Bands</span>
+            <input type="range" id="param-quantize" min="2" max="20" step="1" value="6">
+        </div>
+    </div>
+
+    <div id="controls">
+        <button class="btn" id="btn-settings">⚙️</button>
+        <button class="btn btn-wide" id="btn-save">SAVE HD</button>
+        <button class="btn" id="btn-fullscreen">⛶</button>
+    </div>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec2 a_position;
+        varying vec2 v_texCoord;
+        void main() {
+            gl_Position = vec4(a_position, 0.0, 1.0);
+            v_texCoord = (a_position + 1.0) * 0.5;
+            v_texCoord.y = 1.0 - v_texCoord.y; 
+        }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        uniform sampler2D u_image;
+        uniform float u_time;
+        uniform vec2 u_resolution;
+
+        // Dynamic Uniforms Controlled by Sliders
+        uniform float u_distortion;
+        uniform float u_speed;
+        uniform float u_colorSpeed;
+        uniform float u_edgeThickness;
+        uniform float u_quantize;
+
+        varying vec2 v_texCoord;
+
+        vec3 getFunColor(float t) {
+            vec3 a = vec3(0.5, 0.5, 0.5);
+            vec3 b = vec3(0.5, 0.5, 0.5);
+            vec3 c = vec3(1.0, 1.0, 1.0);
+            vec3 d = vec3(0.00, 0.33, 0.67); 
+            return a + b * cos(6.28318 * (c * t + d));
+        }
+
+        void main() {
+            vec2 uv = v_texCoord;
+            
+            // USE UNIFORMS FOR WARP
+            float fluidTime = u_time * u_speed;
+            
+            // Domain Warping
+            uv.x += sin(uv.y * u_distortion + fluidTime) * 0.02;
+            uv.y += cos(uv.x * u_distortion + fluidTime) * 0.02;
+            uv.x += sin(uv.y * 15.0 - fluidTime * 2.0) * 0.005;
+            
+            // EDGE DETECTION
+            // Scale the pixel size by the slider value
+            vec2 pixel = (2.0 * u_edgeThickness) / u_resolution;
+            float dx = pixel.x;
+            float dy = pixel.y;
+            
+            vec4 c1 = texture2D(u_image, uv + vec2(-dx, -dy));
+            vec4 c2 = texture2D(u_image, uv + vec2(0.0, -dy));
+            vec4 c3 = texture2D(u_image, uv + vec2(dx, -dy));
+            vec4 c4 = texture2D(u_image, uv + vec2(-dx, 0.0));
+            vec4 c5 = texture2D(u_image, uv + vec2(dx, 0.0));
+            vec4 c6 = texture2D(u_image, uv + vec2(-dx, dy));
+            vec4 c7 = texture2D(u_image, uv + vec2(0.0, dy));
+            vec4 c8 = texture2D(u_image, uv + vec2(dx, dy));
+            
+            vec4 sx = -c1 - 2.0 * c4 - c6 + c3 + 2.0 * c5 + c8;
+            vec4 sy = -c1 - 2.0 * c2 - c3 + c6 + 2.0 * c7 + c8;
+            float edge = length(sx.rgb) + length(sy.rgb);
+
+            // COLOR MAPPING
+            vec4 color = texture2D(u_image, uv);
+            float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+            
+            // Quantization using slider
+            float steps = u_quantize;
+            float quantized = floor(gray * steps) / steps;
+            
+            // Color Cycling using slider
+            vec3 artColor = getFunColor(quantized + u_time * u_colorSpeed);
+            
+            artColor = mix(vec3(gray), artColor, 1.4);
+
+            float line = smoothstep(0.4, 0.6, edge);
+            vec3 finalColor = mix(artColor, vec3(0.05, 0.0, 0.1), line);
+
+            gl_FragColor = vec4(finalColor, 1.0);
+        }
+    </script>
+
+    <script>
+        // --- INITIALIZATION ---
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
+        let video = document.createElement('video');
+        let isPlaying = true;
+        
+        // --- PARAMETER STATE ---
+        // We store the values here to pass to shader every frame
+        const params = {
+            distortion: 4.0,
+            speed: 0.8,
+            colorSpeed: 0.1,
+            edges: 1.0,
+            quantize: 6.0
+        };
+
+        // --- RESIZE LOGIC ---
+        function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- SHADER COMPILATION ---
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const program = gl.createProgram();
+        gl.attachShader(program, createShader(gl, gl.VERTEX_SHADER, document.getElementById('vertex-shader').text));
+        gl.attachShader(program, createShader(gl, gl.FRAGMENT_SHADER, document.getElementById('fragment-shader').text));
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        // --- BUFFERS ---
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1.0, -1.0,  1.0, -1.0, -1.0,  1.0,
+            -1.0,  1.0,  1.0, -1.0,  1.0,  1.0,
+        ]), gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, "a_position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+        // --- UNIFORM LOCATIONS ---
+        const locs = {
+            image: gl.getUniformLocation(program, "u_image"),
+            time: gl.getUniformLocation(program, "u_time"),
+            res: gl.getUniformLocation(program, "u_resolution"),
+            distortion: gl.getUniformLocation(program, "u_distortion"),
+            speed: gl.getUniformLocation(program, "u_speed"),
+            colorSpeed: gl.getUniformLocation(program, "u_colorSpeed"),
+            edgeThickness: gl.getUniformLocation(program, "u_edgeThickness"),
+            quantize: gl.getUniformLocation(program, "u_quantize")
+        };
+
+        // --- CAMERA SETUP ---
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+                    audio: false
+                });
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true);
+                video.addEventListener('loadedmetadata', () => {
+                    video.play();
+                    render();
+                });
+            } catch (err) {
+                alert("Camera access denied or unavailable.");
+            }
+        }
+
+        // --- RENDER LOOP ---
+        function render(now) {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+                
+                // Update basic uniforms
+                gl.uniform1f(locs.time, now * 0.001);
+                gl.uniform2f(locs.res, canvas.width, canvas.height);
+
+                // Update dynamic parameter uniforms
+                gl.uniform1f(locs.distortion, params.distortion);
+                gl.uniform1f(locs.speed, params.speed);
+                gl.uniform1f(locs.colorSpeed, params.colorSpeed);
+                gl.uniform1f(locs.edgeThickness, params.edgeThickness);
+                gl.uniform1f(locs.quantize, params.quantize);
+                
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            }
+            if(isPlaying) requestAnimationFrame(render);
+        }
+
+        // --- UI LOGIC ---
+
+        // 1. Settings Toggle
+        const menu = document.getElementById('settings-menu');
+        const btnSettings = document.getElementById('btn-settings');
+        
+        btnSettings.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.classList.toggle('visible');
+        });
+
+        // 2. Slider Listeners
+        // We update the 'params' object when sliders move
+        document.getElementById('param-distortion').addEventListener('input', (e) => params.distortion = parseFloat(e.target.value));
+        document.getElementById('param-speed').addEventListener('input', (e) => params.speed = parseFloat(e.target.value));
+        document.getElementById('param-colorSpeed').addEventListener('input', (e) => params.colorSpeed = parseFloat(e.target.value));
+        document.getElementById('param-edges').addEventListener('input', (e) => params.edges = parseFloat(e.target.value)); // Corrected variable mapping below
+        document.getElementById('param-edges').addEventListener('input', (e) => params.edgeThickness = parseFloat(e.target.value));
+        document.getElementById('param-quantize').addEventListener('input', (e) => params.quantize = parseFloat(e.target.value));
+
+        // Prevent sliders from triggering canvas pause
+        menu.addEventListener('touchstart', (e) => e.stopPropagation());
+        menu.addEventListener('click', (e) => e.stopPropagation());
+
+        // 3. Pause/Play on Canvas Touch
+        canvas.addEventListener('touchstart', (e) => { 
+            isPlaying = !isPlaying; 
+            if(isPlaying) render(performance.now()); 
+        });
+
+        // 4. Save Logic
+        document.getElementById('btn-save').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const flash = document.getElementById('flash');
+            flash.style.opacity = 0.8;
+            setTimeout(() => { flash.style.opacity = 0; }, 100);
+
+            const now = new Date();
+            const filename = `MeltingWorld_${now.getTime()}.png`;
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png', 1.0);
+            link.click();
+        });
+
+        // 5. Fullscreen Logic
+        document.getElementById('btn-fullscreen').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(console.log);
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        setupCamera();
+    </script>
+</body>
+</html>
             z-index: 10;
         }
 
