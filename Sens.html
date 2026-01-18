@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>S23 Safe Mode</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { background: #000; color: #0f0; font-family: monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        #val { font-size: 5rem; font-weight: bold; }
+        #status { color: #888; margin-top: 20px; font-size: 0.8rem; text-align: center; max-width: 80%; }
+        button { padding: 20px 40px; font-size: 1.5rem; background: #0f0; border: none; font-weight: bold; margin-top: 40px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div style="color:#666">MAGNETIC FLUX</div>
+    <div id="val">---</div>
+    <div id="status">WAITING FOR INPUT</div>
+    
+    <button onclick="startSafeMode()">START SAFE MODE</button>
+
+    <script>
+        function startSafeMode() {
+            const status = document.getElementById('status');
+            const val = document.getElementById('val');
+            
+            // Audio Setup
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            const audioCtx = new AudioContext();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.value = 100;
+            gain.gain.value = 0;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+
+            try {
+                // FORCE 10Hz (Safe Speed)
+                const sensor = new Magnetometer({frequency: 10});
+                
+                sensor.addEventListener('reading', () => {
+                    const total = Math.sqrt(sensor.x**2 + sensor.y**2 + sensor.z**2);
+                    val.innerText = total.toFixed(1);
+                    status.innerText = "SENSOR CONNECTED (10Hz)";
+                    status.style.color = "#0f0";
+                    
+                    // Simple Audio Logic
+                    let pct = ((total - 40) / 100); 
+                    if(pct > 0.1) {
+                        gain.gain.setTargetAtTime(0.2, audioCtx.currentTime, 0.1);
+                        osc.frequency.setTargetAtTime(100 + (pct * 500), audioCtx.currentTime, 0.1);
+                    } else {
+                        gain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+                    }
+                });
+
+                sensor.addEventListener('error', e => {
+                    status.innerText = "ERROR: " + e.error.name + " (" + e.error.message + ")";
+                    status.style.color = "red";
+                });
+
+                sensor.start();
+                status.innerText = "ATTEMPTING CONNECTION...";
+
+            } catch (err) {
+                status.innerText = "CRITICAL FAIL: " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>
