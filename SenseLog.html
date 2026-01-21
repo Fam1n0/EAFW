@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensation Cartographer</title>
+    <style>
+        :root {
+            --bg: #121212;
+            --surface: #1e1e1e;
+            --primary: #bb86fc;
+            --secondary: #03dac6;
+            --error: #cf6679;
+            --text: #e0e0e0;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 20px; color: var(--primary); text-transform: uppercase; letter-spacing: 2px; font-size: 1.5rem; }
+        
+        .card {
+            background-color: var(--surface);
+            padding: 20px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
+        label { display: block; margin-bottom: 5px; color: var(--secondary); font-weight: bold; font-size: 0.9rem; }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background-color: #2c2c2c;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 1rem;
+            box-sizing: border-box; 
+        }
+        input:focus, select:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        .btn-save { background-color: var(--primary); color: #000; }
+        .btn-export { background-color: #333; color: var(--secondary); border: 1px solid var(--secondary); }
+        .btn-clear { background-color: #333; color: var(--error); border: 1px solid var(--error); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #333; }
+        th { color: var(--secondary); }
+        tr:last-child td { border-bottom: none; }
+
+        .status { font-size: 0.8rem; color: #777; text-align: center; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>Sensation Logger</h1>
+
+    <div class="card">
+        <label for="areaName">Area / Room Name</label>
+        <input type="text" id="areaName" placeholder="e.g. Living Room North Wall">
+
+        <label for="pointLocation">Specific Point</label>
+        <input type="text" id="pointLocation" placeholder="e.g. 2ft from corner, eye level">
+
+        <label for="sensationType">Sensation Felt</label>
+        <select id="sensationType">
+            <option value="Tingle">⚡ Tingle (Electricity)</option>
+            <option value="Push">✋ Push (Resistance)</option>
+            <option value="Pull">🧲 Pull (Attraction)</option>
+            <option value="Heat">🔥 Heat</option>
+            <option value="Cold">❄️ Cold</option>
+            <option value="Vibration">📳 Vibration</option>
+            <option value="Pressure">⬇️ Pressure / Heavy</option>
+        </select>
+
+        <label for="intensity">Intensity (1-10)</label>
+        <input type="range" id="intensity" min="1" max="10" value="5" oninput="document.getElementById('intVal').innerText = this.value">
+        <div style="text-align: right; margin-top: -10px; font-size: 0.9rem; color: var(--secondary);">Level: <span id="intVal">5</span></div>
+
+        <label for="magReading">Magnetometer Reading (uT)</label>
+        <input type="number" id="magReading" placeholder="Enter number from Toolbox (e.g. 54.2)" step="0.1">
+
+        <div class="btn-group">
+            <button class="btn-save" onclick="logEntry()">Save Entry</button>
+        </div>
+        <div class="status" id="statusMsg">Ready to log.</div>
+    </div>
+
+    <div class="card">
+        <div class="btn-group">
+            <button class="btn-export" onclick="exportCSV()">Download CSV</button>
+            <button class="btn-clear" onclick="clearLog()">Clear All</button>
+        </div>
+        <table id="logTable">
+            <thead>
+                <tr>
+                    <th>Point</th>
+                    <th>Feeling</th>
+                    <th>uT</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Load data from LocalStorage on startup
+        let logs = JSON.parse(localStorage.getItem('sensationLogs')) || [];
+        renderTable();
+
+        function logEntry() {
+            const area = document.getElementById('areaName').value;
+            const point = document.getElementById('pointLocation').value;
+            const feel = document.getElementById('sensationType').value;
+            const intense = document.getElementById('intensity').value;
+            const mag = document.getElementById('magReading').value;
+
+            if(!area || !point || !mag) {
+                document.getElementById('statusMsg').innerText = "❌ Please fill all fields.";
+                document.getElementById('statusMsg').style.color = "var(--error)";
+                return;
+            }
+
+            const entry = {
+                id: Date.now(),
+                timestamp: new Date().toLocaleString(),
+                area: area,
+                point: point,
+                sensation: feel,
+                intensity: intense,
+                magnetometer: mag
+            };
+
+            logs.push(entry);
+            localStorage.setItem('sensationLogs', JSON.stringify(logs));
+            
+            renderTable();
+            document.getElementById('statusMsg').innerText = "✅ Entry Saved!";
+            document.getElementById('statusMsg').style.color = "var(--secondary)";
+            
+            // Clear point but keep Area name (for efficiency)
+            document.getElementById('pointLocation').value = "";
+            document.getElementById('magReading').value = "";
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = "";
+            // Show last 5 entries, newest first
+            const recent = logs.slice().reverse().slice(0, 5); 
+            
+            recent.forEach(log => {
+                const row = `<tr>
+                    <td>${log.point}</td>
+                    <td>${log.sensation} (${log.intensity})</td>
+                    <td>${log.magnetometer}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function exportCSV() {
+            if(logs.length === 0) return alert("No data to export!");
+            
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Timestamp,Area,Point,Sensation,Intensity,Magnetometer(uT)\n";
+
+            logs.forEach(log => {
+                csvContent += `${log.timestamp},"${log.area}","${log.point}",${log.sensation},${log.intensity},${log.magnetometer}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "sensation_log.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
+
+        function clearLog() {
+            if(confirm("Delete all history?")) {
+                logs = [];
+                localStorage.removeItem('sensationLogs');
+                renderTable();
+            }
+        }
+    </script>
+</body>
+</html>
