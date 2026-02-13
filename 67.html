@@ -3,19 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scribble Magic</title>
+    <title>Scribble Play</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Comic Sans MS', sans-serif; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
         canvas { display: block; }
-        #ui { 
-            position: absolute; bottom: 20px; width: 100%; text-align: center; 
-            color: white; pointer-events: none; text-shadow: 2px 2px 4px #000;
-            font-size: 1.2rem;
-        }
     </style>
 </head>
 <body>
-    <div id="ui">Touch the eyes to wake them up!</div>
     <canvas id="canvas"></canvas>
 
     <script>
@@ -24,16 +18,94 @@
         const img = new Image();
         img.src = '1000087818.jpg';
 
-        let particles = [];
-        let touches = [];
-        const particleCount = 600; // Lowered for mobile performance
+        let blobs = [];
+        let hue = 0;
+        const blobCount = 12; // Fewer, larger blobs are better for toddlers
 
         img.onload = () => {
             resize();
-            initParticles();
+            for(let i=0; i<blobCount; i++) blobs.push(new Blob());
             animate();
         };
 
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+
+        class Blob {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.radius = Math.random() * 40 + 30; // Big and chunky
+                this.color = `hsla(${Math.random() * 360}, 80%, 60%, 0.8)`;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10;
+            }
+            update(touch) {
+                if (touch) {
+                    const dx = touch.x - this.x;
+                    const dy = touch.y - this.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 150) {
+                        this.vx += dx * 0.05; // Pull toward finger
+                        this.vy += dy * 0.05;
+                    }
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.95; // Friction
+                this.vy *= 0.95;
+
+                // Bounce off walls
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                // Add a "white shine" to make it look like a bubble
+                ctx.beginPath();
+                ctx.arc(this.x - this.radius/3, this.y - this.radius/3, this.radius/4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.fill();
+            }
+        }
+
+        let activeTouch = null;
+        const handleInput = (e) => {
+            const t = e.touches ? e.touches[0] : e;
+            activeTouch = { x: t.clientX, y: t.clientY };
+            hue += 5; // Change color as they play
+        };
+
+        canvas.addEventListener('touchstart', handleInput);
+        canvas.addEventListener('touchmove', handleInput);
+        canvas.addEventListener('touchend', () => activeTouch = null);
+        canvas.addEventListener('mousemove', handleInput);
+
+        function animate() {
+            // Draw the scribble photo as the background
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // Interaction: Draw trail
+            blobs.forEach(b => {
+                b.update(activeTouch);
+                b.draw();
+            });
+            
+            requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
