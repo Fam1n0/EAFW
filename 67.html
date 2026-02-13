@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Physics Scribble Playground</title>
+    <style>
+        body { margin: 0; background: #050505; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { border: 1px solid #333; cursor: crosshair; }
+        #controls { position: absolute; top: 10px; left: 10px; color: #aaa; font-family: sans-serif; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="controls">Move mouse to repel | Click to reset particles</div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const img = new Image();
+        img.src = '1000087818.jpg';
+
+        let particles = [];
+        let flowField = [];
+        const particleCount = 1500;
+
+        img.onload = () => {
+            // Setup canvas size based on image aspect ratio
+            const scale = Math.min(window.innerWidth / img.width, window.innerHeight / img.height) * 0.9;
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+
+            // Draw image hiddenly to analyze pixels
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            
+            // Create Flow Field: Darker pixels = stronger gravity/force
+            for (let y = 0; y < canvas.height; y += 5) {
+                for (let x = 0; x < canvas.width; x += 5) {
+                    const index = (y * canvas.width + x) * 4;
+                    const r = imageData[index];
+                    const g = imageData[index + 1];
+                    const b = imageData[index + 2];
+                    // Calculate "darkness" (0 is black, 255 is white)
+                    const brightness = (r + g + b) / 3;
+                    const force = (255 - brightness) / 255; 
+                    
+                    if (force > 0.3) {
+                        flowField.push({ x, y, force: force * 2 });
+                    }
+                }
+            }
+            initParticles();
+            animate();
+        };
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.history = [];
+            }
+            update(mouse) {
+                // Gravity toward dark spots (the ink)
+                flowField.forEach(f => {
+                    const dx = f.x - this.x;
+                    const dy = f.y - this.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 50) {
+                        this.vx += (dx / dist) * f.force * 0.05;
+                        this.vy += (dy / dist) * f.force * 0.05;
+                    }
+                });
+
+                // Mouse Repulsion
+                const mdx = mouse.x - this.x;
+                const mdy = mouse.y - this.y;
+                const mDist = Math.sqrt(mdx*mdx + mdy*mdy);
+                if (mDist < 100) {
+                    this.vx -= (mdx / mDist) * 2;
+                    this.vy -= (mdy / mDist) * 2;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.95; // Friction
+                this.vy *= 0.95;
+
+                // Boundary check
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                    this.reset();
+                }
+            }
+            draw() {
+                ctx.fillStyle = 'rgba(100, 255, 150, 0.8)';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        const mouse = { x: -1000, y: -1000 };
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - rect.left;
+            mouse.y = e.clientY - rect.top;
+        });
+
+        window.addEventListener('mousedown', initParticles);
+
+        function animate() {
+            // Draw image with slight transparency to create trail effect
+            ctx.globalAlpha = 0.2;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = 1.0;
+
+            particles.forEach(p => {
+                p.update(mouse);
+                p.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
