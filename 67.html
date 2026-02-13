@@ -2,38 +2,129 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Physics Scribble Playground</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Scribble Magic</title>
     <style>
-        body { margin: 0; background: #050505; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        canvas { border: 1px solid #333; cursor: crosshair; }
-        #controls { position: absolute; top: 10px; left: 10px; color: #aaa; font-family: sans-serif; pointer-events: none; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; font-family: 'Comic Sans MS', sans-serif; }
+        canvas { display: block; }
+        #ui { 
+            position: absolute; bottom: 20px; width: 100%; text-align: center; 
+            color: white; pointer-events: none; text-shadow: 2px 2px 4px #000;
+            font-size: 1.2rem;
+        }
     </style>
 </head>
 <body>
-    <div id="controls">Move mouse to repel | Click to reset particles</div>
+    <div id="ui">Touch the eyes to wake them up!</div>
     <canvas id="canvas"></canvas>
 
     <script>
         const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const ctx = canvas.getContext('2d');
         const img = new Image();
         img.src = '1000087818.jpg';
 
         let particles = [];
-        let flowField = [];
-        const particleCount = 1500;
+        let touches = [];
+        const particleCount = 600; // Lowered for mobile performance
 
         img.onload = () => {
-            // Setup canvas size based on image aspect ratio
-            const scale = Math.min(window.innerWidth / img.width, window.innerHeight / img.height) * 0.9;
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
+            resize();
+            initParticles();
+            animate();
+        };
 
-            // Draw image hiddenly to analyze pixels
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 3 + 2;
+                this.color = `hsl(${Math.random() * 60 + 180}, 100%, 70%)`; // Cool cyans/blues
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+            }
+
+            update() {
+                // Gravity toward touches
+                touches.forEach(t => {
+                    const dx = t.x - this.x;
+                    const dy = t.y - this.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 200) {
+                        this.vx += (dx / dist) * 0.5;
+                        this.vy += (dy / dist) * 0.5;
+                    }
+                });
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.92; // Heavy friction for "inky" feel
+                this.vy *= 0.92;
+
+                // Wrap around screen
+                if (this.x < 0) this.x = canvas.width;
+                if (this.x > canvas.width) this.x = 0;
+                if (this.y < 0) this.y = canvas.height;
+                if (this.y > canvas.height) this.y = 0;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Add a "glow"
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+            }
+        }
+
+        function initParticles() {
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        // Handle Touch and Mouse
+        function handleInput(e) {
+            touches = [];
+            const inputSources = e.touches ? Array.from(e.touches) : [e];
+            inputSources.forEach(t => {
+                touches.push({ x: t.clientX || t.pageX, y: t.clientY || t.pageY });
+            });
+        }
+
+        canvas.addEventListener('touchstart', handleInput);
+        canvas.addEventListener('touchmove', handleInput);
+        canvas.addEventListener('touchend', () => touches = []);
+        canvas.addEventListener('mousemove', handleInput);
+
+        function animate() {
+            // Draw the background image (the scribble)
+            // Using "difference" or "multiply" mode can make the particles interact visually with your lines
+            ctx.globalCompositeOperation = 'source-over';
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             
-            // Create Flow Field: Darker pixels = stronger gravity/force
+            // Draw particles
+            ctx.globalCompositeOperation = 'screen'; 
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            
+            requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
             for (let y = 0; y < canvas.height; y += 5) {
                 for (let x = 0; x < canvas.width; x += 5) {
                     const index = (y * canvas.width + x) * 4;
